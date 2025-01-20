@@ -2,6 +2,23 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class SEBlock(nn.Module):
+    def __init__(self, channels, reduction=16):
+        super(SEBlock, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(channels, channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)
+        return x * y.expand_as(x)
+
 class InvertedResidualDepthwiseConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, expand_ratio=6):
         super().__init__()
@@ -22,6 +39,7 @@ class InvertedResidualDepthwiseConv2d(nn.Module):
             nn.Conv2d(hidden_dim, out_channels, 1, 1, 0, bias=False),
             nn.InstanceNorm2d(out_channels)
         )
+        self.se = SEBlock(out_channels)
 
     def forward(self, x):
         y = self.expansion(x)
