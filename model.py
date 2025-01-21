@@ -124,12 +124,26 @@ class LightweightCNN(nn.Module):
             nn.MaxPool2d(2, 2)
         )
 
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(2 * 2 * 256, 512),
-            nn.ReLU(inplace=True),
+            nn.Linear(128, 1024),
+            nn.BatchNorm1d(1024),
+            nn.Hardswish(inplace=True),
             nn.Dropout(0.5),
-            nn.Linear(512, 100)
+            
+            nn.Linear(1024, 512),
+            nn.BatchNorm1d(512),
+            nn.Hardswish(inplace=True),
+            nn.Dropout(0.4),
+            
+            nn.Linear(512, 256),
+            nn.LayerNorm(256),
+            nn.Hardswish(inplace=True),
+            nn.Dropout(0.3),
+            
+            nn.Linear(256, 100)
         )
 
     def forward(self, x, return_features=False):
@@ -146,5 +160,6 @@ class LightweightCNN(nn.Module):
         if return_features:
             return features
         
+        x = self.global_avg_pool(x) 
         x = self.classifier(x)
         return x
